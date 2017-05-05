@@ -13,6 +13,7 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 import pl.jsolve.sweetener.io.Resources;
 import pl.jsolve.templ4docx.cleaner.DocumentCleaner;
+import pl.jsolve.templ4docx.cleaner.ObjectVariableCleaner;
 import pl.jsolve.templ4docx.exception.OpenDocxException;
 import pl.jsolve.templ4docx.executor.DocumentExecutor;
 import pl.jsolve.templ4docx.extractor.VariablesExtractor;
@@ -45,6 +46,11 @@ public class Docx implements Serializable {
     private DocumentCleaner documentCleaner;
 
     /**
+     * Object variable cleaner service, which is used to fix first field symbol
+     */
+    private ObjectVariableCleaner objectVariableCleaner;
+
+    /**
      * Document meta-information processor, which is used to mark occurrences
      * of variables for possibility of updating them at any time.
      */
@@ -60,12 +66,14 @@ public class Docx implements Serializable {
         this.docxPath = docxPath;
         open();
         this.documentCleaner = new DocumentCleaner();
+        this.objectVariableCleaner = new ObjectVariableCleaner();
         this.documentMetaProcessor = new DocumentMetaProcessor();
     }
 
     public Docx(InputStream docxInputStream) {
         open(docxInputStream);
         this.documentCleaner = new DocumentCleaner();
+        this.objectVariableCleaner = new ObjectVariableCleaner();
         this.documentMetaProcessor = new DocumentMetaProcessor();
     }
 
@@ -123,6 +131,7 @@ public class Docx implements Serializable {
      */
     public void fillTemplate(Variables variables) {
         documentCleaner.clean(this, variables, variablePattern);
+        objectVariableCleaner.clean(this, variables, variablePattern);
         if (processMetaInformation)
             documentMetaProcessor.processMetaInformation(this, variables, variablePattern);
         DocumentExecutor documentExecutor = new DocumentExecutor(variables);

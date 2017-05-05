@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
 
@@ -22,6 +24,7 @@ public class ObjectVariable implements Variable {
     private final int maxNestedLevel;
     private final String key;
     private final Object value;
+    private static final Pattern invalidFieldPattern = Pattern.compile("(?<=\\.)(\\w)");
 
     private ObjectVariable(ObjectVariable parentObjectVariable, String key, Object value,
             VariablePattern variablePattern, int maxNestedLevel) {
@@ -156,6 +159,26 @@ public class ObjectVariable implements Variable {
     @Override
     public String toString() {
         return key + "=" + getStringValue();
+    }
+
+    public static String fixInvalidFieldName(String varName) {
+        StringBuilder sb = new StringBuilder(varName);
+        Matcher matcher = invalidFieldPattern.matcher(sb);
+        int index = 0;
+        while (matcher.find(index)) {
+            int start = matcher.start();
+            int end = matcher.end();
+            index = end;
+
+            String fieldPrefix = matcher.group(1);
+            String fixedFieldPrefix = fieldPrefix.toLowerCase();
+            if (!fieldPrefix.equals(fixedFieldPrefix)) {
+                sb.replace(start, end, fixedFieldPrefix);
+                index += fixedFieldPrefix.length() - fieldPrefix.length();
+            }
+        }
+        String fixedVarName = sb.toString();
+        return fixedVarName;
     }
 
 }

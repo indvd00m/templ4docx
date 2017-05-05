@@ -14,6 +14,7 @@ import pl.jsolve.templ4docx.core.Docx;
 import pl.jsolve.templ4docx.core.VariablePattern;
 import pl.jsolve.templ4docx.extractor.KeyExtractor;
 import pl.jsolve.templ4docx.util.Key;
+import pl.jsolve.templ4docx.variable.ObjectVariable;
 import pl.jsolve.templ4docx.variable.Variables;
 
 /**
@@ -89,7 +90,10 @@ public class DocumentCleaner {
                         if (!suffixIndexesOf.isEmpty()) {
                             notRecognizedVariable += text.substring(0, suffixIndexesOf.get(0) + 1);
                             XWPFRun startRun = runs.get(notRecognizedVariableStartIndex);
-                            boolean executeResult = containsKey(keys, notRecognizedVariable);
+                            String fixedNotRecognizedVariable = ObjectVariable
+                                    .fixInvalidFieldName(notRecognizedVariable);
+                            boolean executeResult = containsKey(keys, notRecognizedVariable)
+                                    || containsKey(keys, fixedNotRecognizedVariable);
                             if (executeResult) {
                                 // Set found variable to start run
                                 String textFromStartRun = startRun.getText(0);

@@ -1,4 +1,4 @@
-package pl.jsolve.templ4docx.tests.cleaner;
+package pl.jsolve.templ4docx.tests.variable.object;
 
 import static org.junit.Assert.*;
 
@@ -20,11 +20,11 @@ import pl.jsolve.templ4docx.variable.Variables;
  * @author indvd00m (gotoindvdum[at]gmail[dot]com)
  *
  */
-public class TestCleanerVariableObjectTemplate extends AbstractCleanerTest {
+public class TestInvalidObjectTemplate extends AbstractVariableObjectTest {
 
     @Test
     public void test() throws IOException {
-        String templateFileName = "cleaner/cleaner-variable-object-template";
+        String templateFileName = "variable/object/invalid-object-template";
         InputStream is = getClass().getClassLoader().getResourceAsStream(templateFileName + ".docx");
 
         Docx docx = new Docx(is);
@@ -48,7 +48,7 @@ public class TestCleanerVariableObjectTemplate extends AbstractCleanerTest {
         String expected = "";
         expected += "This is test simple template with three variables: value01, value02, value03. \n";
         expected += "This is nested values of variables: field1Value, field2Value, field3Value. \n";
-        expected += "And more: field11Value. \n";
+        expected += "This is nested values of invalid variables: field1Value, ${var02.NotExistsField2}, ${var03.fieLd3}. \n";
         expected += "And more: field11Value.";
         assertEquals(expected, text.trim());
     }
