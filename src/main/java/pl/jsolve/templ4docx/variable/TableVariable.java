@@ -27,6 +27,9 @@ public class TableVariable implements Variable {
     }
 
     public void addVariable(List<? extends Variable> variable) {
+        if (variable.isEmpty()) {
+            return;
+        }
         if (numberOfRows == 0) {
             numberOfRows = variable.size();
         } else if (numberOfRows != variable.size()) {
@@ -34,6 +37,43 @@ public class TableVariable implements Variable {
                     + variable.size());
         }
         this.variables.add(variable);
+        // object variables
+        Variable firstVariable = variable.get(0);
+        if (firstVariable instanceof ObjectVariable) {
+            ObjectVariable firstObjVar = (ObjectVariable) firstVariable;
+            List<ObjectVariable> fieldVarsTree = firstObjVar.getFieldVariablesTree();
+            int fieldVarsTreeSize = fieldVarsTree.size();
+            if (fieldVarsTreeSize > 0) {
+                for (int i = 0; i < fieldVarsTree.size(); i++) {
+                    List<ObjectVariable> fieldVarColumn = new ArrayList<ObjectVariable>();
+                    this.variables.add(fieldVarColumn);
+                }
+                for (Variable var : variable) {
+                    if (var instanceof ObjectVariable == false) {
+                        throw new IllegalArgumentException(
+                                String.format("Expected type of variable: %s, but actual is: %s",
+                                        ObjectVariable.class.getName(), var.getClass().getName()));
+                    }
+                    ObjectVariable rowFieldVar = (ObjectVariable) var;
+                    if (!rowFieldVar.getKey().equals(firstObjVar.getKey())) {
+                        throw new IllegalArgumentException(String.format(
+                                "Expected name of variable: %s, but actual is: %s", firstObjVar, rowFieldVar.getKey()));
+                    }
+                    List<ObjectVariable> columnFieldVars = rowFieldVar.getFieldVariablesTree();
+                    if (columnFieldVars.size() != fieldVarsTreeSize) {
+                        throw new IllegalArgumentException(String.format("Expected size of: %d, but actual is: %d",
+                                fieldVarsTreeSize, columnFieldVars.size()));
+                    }
+                    for (int i = 0; i < columnFieldVars.size(); i++) {
+                        ObjectVariable columnFieldVar = columnFieldVars.get(i);
+                        int columnIndex = this.variables.size() - fieldVarsTreeSize + i;
+                        @SuppressWarnings("unchecked")
+                        List<ObjectVariable> columnList = (List<ObjectVariable>) this.variables.get(columnIndex);
+                        columnList.add(columnFieldVar);
+                    }
+                }
+            }
+        }
     }
 
     public Set<Key> getKeys() {
