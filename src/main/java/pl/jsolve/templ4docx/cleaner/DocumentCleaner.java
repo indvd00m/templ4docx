@@ -84,8 +84,8 @@ public class DocumentCleaner {
                 if (text != null) {
                     // check whether variable is started but not ended
 
+                    List<Integer> suffixIndexesOf = Strings.indexesOf(text, variablePattern.getSuffix());
                     if (notRecognizedVariableStartIndex != -1) {
-                        List<Integer> suffixIndexesOf = Strings.indexesOf(text, variablePattern.getSuffix());
                         if (!suffixIndexesOf.isEmpty()) {
                             notRecognizedVariable += text.substring(0, suffixIndexesOf.get(0) + 1);
                             XWPFRun startRun = runs.get(notRecognizedVariableStartIndex);
@@ -93,8 +93,11 @@ public class DocumentCleaner {
                             if (executeResult) {
                                 // Set found variable to start run
                                 String textFromStartRun = startRun.getText(0);
-                                textFromStartRun = StringUtils.replace(textFromStartRun, notRecognizedPrefix,
-                                        notRecognizedVariable);
+                                String prefix = getFirstChar(variablePattern.getPrefix());
+                                List<Integer> prefixIndexesOf = Strings.indexesOf(textFromStartRun, prefix);
+                                int lastIndexOfPrefix = prefixIndexesOf.get(prefixIndexesOf.size() - 1);
+                                textFromStartRun = textFromStartRun.substring(0, lastIndexOfPrefix)
+                                        + notRecognizedVariable;
                                 startRun.setText(textFromStartRun, 0);
 
                                 // clean runs between start and end variable pattern
@@ -116,7 +119,7 @@ public class DocumentCleaner {
 
                     String prefix = getFirstChar(variablePattern.getPrefix());
                     List<Integer> prefixIndexesOf = Strings.indexesOf(text, prefix);
-                    if (!prefixIndexesOf.isEmpty() && Strings.indexesOf(text, variablePattern.getSuffix()).isEmpty()) {
+                    if (!prefixIndexesOf.isEmpty() && prefixIndexesOf.size() > suffixIndexesOf.size()) {
                         notRecognizedVariableStartIndex = i;
                         notRecognizedPrefix = text.substring(prefixIndexesOf.get(prefixIndexesOf.size() - 1));
                         notRecognizedVariable = notRecognizedPrefix;
