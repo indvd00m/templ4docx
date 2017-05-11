@@ -1,12 +1,17 @@
 package pl.jsolve.templ4docx.strategy;
 
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTBookmark;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTMarkupRange;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRow;
 
 import pl.jsolve.templ4docx.cleaner.TableRowCleaner;
@@ -17,6 +22,7 @@ import pl.jsolve.templ4docx.insert.ObjectInsert;
 import pl.jsolve.templ4docx.insert.TableCellInsert;
 import pl.jsolve.templ4docx.insert.TableRowInsert;
 import pl.jsolve.templ4docx.insert.TextInsert;
+import pl.jsolve.templ4docx.meta.DocumentMetaProcessor;
 import pl.jsolve.templ4docx.util.Key;
 import pl.jsolve.templ4docx.variable.TableVariable;
 import pl.jsolve.templ4docx.variable.Variable;
@@ -27,12 +33,14 @@ public class TableInsertStrategy implements InsertStrategy {
     private Variables variables;
     private InsertStrategyChooser insertStrategyChooser;
     private TableRowCleaner tableRowCleaner;
+    private DocumentMetaProcessor metaProcessor;
 
     public TableInsertStrategy(Variables variables, InsertStrategyChooser insertStrategyChooser,
             TableRowCleaner tableRowCleaner) {
         this.variables = variables;
         this.insertStrategyChooser = insertStrategyChooser;
         this.tableRowCleaner = tableRowCleaner;
+        this.metaProcessor = new DocumentMetaProcessor();
     }
 
     @Override
@@ -62,6 +70,9 @@ public class TableInsertStrategy implements InsertStrategy {
                     insertStrategyChooser.replace(clonedCellInsert, subVariable);
                 }
             }
+            if (i != 0) {
+                cleanMetaInformation(clonedRow);
+            }
             table.addRow(clonedRow, templateRowPosition + 1);
         }
         tableRowCleaner.add(tableRowInsert.getRow());
@@ -71,6 +82,50 @@ public class TableInsertStrategy implements InsertStrategy {
         CTRow ctRow = CTRow.Factory.newInstance();
         ctRow.set(templateRow.getCtRow());
         return new XWPFTableRow(ctRow, templateRow.getTable());
+    }
+
+    private List<XWPFParagraph> getParagraphs(XWPFTable table) {
+        List<XWPFParagraph> paragraphs = new ArrayList<XWPFParagraph>();
+        for (XWPFTableRow row : table.getRows()) {
+            for (XWPFTableCell cell : row.getTableCells()) {
+                paragraphs.addAll(cell.getParagraphs());
+                for (XWPFTable cellTable : cell.getTables()) {
+                    paragraphs.addAll(getParagraphs(cellTable));
+                }
+            }
+        }
+        return paragraphs;
+    }
+
+    private List<XWPFParagraph> getParagraphs(XWPFTableRow row) {
+        List<XWPFParagraph> paragraphs = new ArrayList<XWPFParagraph>();
+        for (XWPFTableCell cell : row.getTableCells()) {
+            paragraphs.addAll(cell.getParagraphs());
+            for (XWPFTable cellTable : cell.getTables()) {
+                paragraphs.addAll(getParagraphs(cellTable));
+            }
+        }
+        return paragraphs;
+    }
+
+    private void cleanMetaInformation(XWPFTableRow row) {
+        XWPFDocument document = row.getTable().getBody().getXWPFDocument();
+        for (XWPFParagraph paragraph : getParagraphs(row)) {
+            for (CTBookmark bookmarkStart : paragraph.getCTP().getBookmarkStartList()) {
+                if (metaProcessor.isVarBookmarkName(bookmarkStart)) {
+                    BigInteger id = bookmarkStart.getId();
+                    CTMarkupRange bookmarkEnd = null;
+                    for (CTMarkupRange nextBookmarkEnd : paragraph.getCTP().getBookmarkEndList()) {
+                        if (nextBookmarkEnd.getId().equals(id)) {
+                            bookmarkEnd = nextBookmarkEnd;
+                            break;
+                        }
+                    }
+                    metaProcessor.setNextId(document, bookmarkStart, bookmarkEnd);
+                    metaProcessor.setGeneratedByVarBookmarkName(bookmarkStart);
+                }
+            }
+        }
     }
 
     public void cleanRows() {
