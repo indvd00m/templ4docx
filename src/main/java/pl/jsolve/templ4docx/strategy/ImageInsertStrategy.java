@@ -6,7 +6,9 @@ import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 
 import pl.jsolve.templ4docx.insert.ImageInsert;
 import pl.jsolve.templ4docx.insert.Insert;
@@ -26,12 +28,14 @@ public class ImageInsertStrategy implements InsertStrategy {
 
         ImageInsert imageInsert = (ImageInsert) insert;
         ImageVariable imageVariable = (ImageVariable) variable;
-        for (XWPFRun run : imageInsert.getParagraph().getRuns()) {
-            String text = run.getText(0);
+        XWPFParagraph paragraph = imageInsert.getParagraph();
+        for (int i = 0; i < paragraph.getRuns().size(); i++) {
+            XWPFRun run = paragraph.getRuns().get(i);
+            String text = run.text();
             if (StringUtils.contains(text, imageInsert.getKey().getKey())) {
                 insertPicture(run, imageVariable);
                 text = StringUtils.replace(text, imageInsert.getKey().getKey(), "");
-                run.setText(text, 0);
+                replaceRun(paragraph, i, text);
             }
         }
     }
@@ -49,5 +53,28 @@ public class ImageInsertStrategy implements InsertStrategy {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, XWPFRun run, String text) {
+        int index = paragraph.getRuns().indexOf(run);
+        return replaceRun(paragraph, index, text);
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, int index, String text) {
+        XWPFRun run = paragraph.getRuns().get(index);
+        XWPFRun newRun = paragraph.insertNewRun(index);
+        applyStyle(run, newRun);
+        newRun.setText(text);
+        paragraph.removeRun(index + 1);
+        return newRun;
+    }
+
+    protected void applyStyle(XWPFRun source, XWPFRun target) {
+        applyRPr(target, source.getCTR().getRPr());
+    }
+
+    protected void applyRPr(XWPFRun run, CTRPr rPr) {
+        CTRPr sourceRPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        sourceRPr.set(rPr);
     }
 }

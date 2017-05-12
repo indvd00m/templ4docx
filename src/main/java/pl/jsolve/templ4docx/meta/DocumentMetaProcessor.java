@@ -201,7 +201,7 @@ public class DocumentMetaProcessor {
         int lastProcessedRunIndex = -1;
         for (XWPFRun run : runs) {
             lastProcessedRunIndex++;
-            String text = run.getText(0);
+            String text = run.text();
             if (text == null)
                 continue;
             XWPFRun lastProcessedRun = run;
@@ -230,7 +230,7 @@ public class DocumentMetaProcessor {
      * @return index of a last new run after splitting source run and creating new runs
      */
     protected int splitRunByVariable(XWPFParagraph paragraph, XWPFRun run, int runIndex, String varName) {
-        String text = run.getText(0);
+        String text = run.text();
         if (text == null)
             return runIndex;
         if (text.equals(varName)) {
@@ -256,7 +256,7 @@ public class DocumentMetaProcessor {
         }
         // current
         {
-            run.setText(currentText, 0);
+            run = replaceRun(paragraph, runIndex, currentText);
         }
         // after
         if (afterText.length() > 0) {
@@ -268,9 +268,18 @@ public class DocumentMetaProcessor {
         return runIndex;
     }
 
-    protected void cloneRun(XWPFRun source, XWPFRun target) {
-        applyStyle(source, target);
-        target.setText(source.getText(0), 0);
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, XWPFRun run, String text) {
+        int index = paragraph.getRuns().indexOf(run);
+        return replaceRun(paragraph, index, text);
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, int index, String text) {
+        XWPFRun run = paragraph.getRuns().get(index);
+        XWPFRun newRun = paragraph.insertNewRun(index);
+        applyStyle(run, newRun);
+        newRun.setText(text);
+        paragraph.removeRun(index + 1);
+        return newRun;
     }
 
     protected void applyStyle(XWPFRun source, XWPFRun target) {
@@ -308,7 +317,7 @@ public class DocumentMetaProcessor {
         }
 
         for (XWPFRun run : paragraph.getRuns()) {
-            String varName = run.getText(0);
+            String varName = run.text();
             if (keysHolder.containsKeyByName(varName)) {
                 List<VariableBookmark> varBookmarks = getVariableBookmarks(run, keysHolder);
                 if (varBookmarks.isEmpty()) {
@@ -488,7 +497,7 @@ public class DocumentMetaProcessor {
      */
     protected void markVarInRunByBookmark(XWPFParagraph paragraph, XWPFRun run) {
 
-        String varName = run.getText(0);
+        String varName = run.text();
 
         // getting new id for bookmark
         BigInteger id = getMaxBookmarkId(paragraph.getDocument()).add(new BigInteger("1"));
@@ -607,7 +616,7 @@ public class DocumentMetaProcessor {
         // bookmark id, so bookmark name must be updated too
         String varName = varBookmark.getVarName();
         setEncodedBookmarkName(bookmarkStart, varName);
-        varRun.setText(varName, 0);
+        varRun = replaceRun(paragraph, varRun, varName);
 
         if (needNodeAlign) {
             alignNodes(paragraph, varRun, bookmarkStart, bookmarkEnd);
@@ -687,7 +696,7 @@ public class DocumentMetaProcessor {
             if (index == -1) {
                 index = i;
             } else {
-                String text = run.getText(0);
+                String text = run.text();
                 if (varName.equals(text)) {
                     index = i;
                     break;

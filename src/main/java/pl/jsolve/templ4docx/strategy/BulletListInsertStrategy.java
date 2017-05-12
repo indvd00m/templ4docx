@@ -71,7 +71,7 @@ public class BulletListInsertStrategy implements InsertStrategy {
     private void cloneRun(XWPFRun clone, XWPFRun source) {
         CTRPr rPr = clone.getCTR().addNewRPr();
         rPr.set(source.getCTR().getRPr());
-        clone.setText(source.getText(0));
+        clone.setText(source.text());
     }
 
     private Insert prepareInsert(BulletListInsert originalInsert, XWPFParagraph paragraph, Key key,
