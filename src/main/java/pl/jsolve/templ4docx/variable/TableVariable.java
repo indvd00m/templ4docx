@@ -1,8 +1,10 @@
 package pl.jsolve.templ4docx.variable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import pl.jsolve.templ4docx.exception.IncorrectNumberOfRowsException;
@@ -42,11 +44,17 @@ public class TableVariable implements Variable {
         if (firstVariable instanceof ObjectVariable) {
             ObjectVariable firstObjVar = (ObjectVariable) firstVariable;
             List<ObjectVariable> fieldVarsTree = firstObjVar.getFieldVariablesTree();
-            int fieldVarsTreeSize = fieldVarsTree.size();
-            if (fieldVarsTreeSize > 0) {
+            if (!fieldVarsTree.isEmpty()) {
                 for (int i = 0; i < fieldVarsTree.size(); i++) {
-                    List<ObjectVariable> fieldVarColumn = new ArrayList<ObjectVariable>();
+                    List<ObjectVariable> fieldVarColumn = new ArrayList<ObjectVariable>(variable.size());
                     this.variables.add(fieldVarColumn);
+                }
+                Map<String, Integer> keysIndexByName = new HashMap<String, Integer>();
+                // first variable now used as sample for all next variables
+                keysIndexByName.put(firstObjVar.getKey(), 0);
+                for (int i = 0; i < fieldVarsTree.size(); i++) {
+                    ObjectVariable var = fieldVarsTree.get(i);
+                    keysIndexByName.put(var.getKey(), i + 1);
                 }
                 for (Variable var : variable) {
                     if (var instanceof ObjectVariable == false) {
@@ -60,13 +68,11 @@ public class TableVariable implements Variable {
                                 "Expected name of variable: %s, but actual is: %s", firstObjVar, rowFieldVar.getKey()));
                     }
                     List<ObjectVariable> columnFieldVars = rowFieldVar.getFieldVariablesTree();
-                    if (columnFieldVars.size() != fieldVarsTreeSize) {
-                        throw new IllegalArgumentException(String.format("Expected size of: %d, but actual is: %d",
-                                fieldVarsTreeSize, columnFieldVars.size()));
-                    }
                     for (int i = 0; i < columnFieldVars.size(); i++) {
                         ObjectVariable columnFieldVar = columnFieldVars.get(i);
-                        int columnIndex = this.variables.size() - fieldVarsTreeSize + i;
+                        Integer columnIndex = keysIndexByName.get(columnFieldVar.getKey());
+                        if (columnIndex == null)
+                            continue;
                         @SuppressWarnings("unchecked")
                         List<ObjectVariable> columnList = (List<ObjectVariable>) this.variables.get(columnIndex);
                         columnList.add(columnFieldVar);
