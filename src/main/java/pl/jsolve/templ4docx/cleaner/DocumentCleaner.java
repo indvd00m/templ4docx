@@ -8,6 +8,7 @@ import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 
 import pl.jsolve.sweetener.text.Strings;
 import pl.jsolve.templ4docx.core.Docx;
@@ -38,7 +39,7 @@ public class DocumentCleaner {
     public void clean(Docx docx, Variables variables, VariablePattern variablePattern) {
         List<Key> keys = keyExtractor.extractKeys(variables);
         for (XWPFParagraph paragraph : docx.getXWPFDocument().getParagraphs()) {
-            clean(paragraph.getRuns(), keys, variablePattern);
+            clean(paragraph, keys, variablePattern);
         }
 
         cleanTables(docx.getXWPFDocument().getTables(), keys, variablePattern);
@@ -58,7 +59,7 @@ public class DocumentCleaner {
                         if (!cell.getTables().isEmpty()) {
                             cleanTables(cell.getTables(), keys, variablePattern);
                         }
-                        clean(paragraph.getRuns(), keys, variablePattern);
+                        clean(paragraph, keys, variablePattern);
                     }
                 }
             }
@@ -72,16 +73,16 @@ public class DocumentCleaner {
      * @param keys
      * @param variablePattern
      */
-    private void clean(List<XWPFRun> runs, List<Key> keys, VariablePattern variablePattern) {
-        if (runs == null || runs.isEmpty() || runs.size() == 1) {
+    private void clean(XWPFParagraph paragraph, List<Key> keys, VariablePattern variablePattern) {
+        if (paragraph.getRuns() == null || paragraph.getRuns().isEmpty() || paragraph.getRuns().size() == 1) {
             return;
         } else {
             // validate whether xwpfRun contains any variable pattern which are not recognized
             String notRecognizedVariable = "";
             String notRecognizedPrefix = "";
             int notRecognizedVariableStartIndex = -1;
-            for (int i = 0; i < runs.size(); i++) {
-                String text = runs.get(i).getText(0);
+            for (int i = 0; i < paragraph.getRuns().size(); i++) {
+                String text = paragraph.getRuns().get(i).text();
                 if (text != null) {
                     // check whether variable is started but not ended
 
@@ -89,28 +90,28 @@ public class DocumentCleaner {
                     if (notRecognizedVariableStartIndex != -1) {
                         if (!suffixIndexesOf.isEmpty()) {
                             notRecognizedVariable += text.substring(0, suffixIndexesOf.get(0) + 1);
-                            XWPFRun startRun = runs.get(notRecognizedVariableStartIndex);
+                            XWPFRun startRun = paragraph.getRuns().get(notRecognizedVariableStartIndex);
                             String fixedNotRecognizedVariable = ObjectVariable
                                     .fixInvalidFieldName(notRecognizedVariable);
                             boolean executeResult = containsKey(keys, notRecognizedVariable)
                                     || containsKey(keys, fixedNotRecognizedVariable);
                             if (executeResult) {
                                 // Set found variable to start run
-                                String textFromStartRun = startRun.getText(0);
+                                String textFromStartRun = startRun.text();
                                 String prefix = getFirstChar(variablePattern.getPrefix());
                                 List<Integer> prefixIndexesOf = Strings.indexesOf(textFromStartRun, prefix);
                                 int lastIndexOfPrefix = prefixIndexesOf.get(prefixIndexesOf.size() - 1);
                                 textFromStartRun = textFromStartRun.substring(0, lastIndexOfPrefix)
                                         + notRecognizedVariable;
-                                startRun.setText(textFromStartRun, 0);
+                                startRun = replaceRun(paragraph, notRecognizedVariableStartIndex, textFromStartRun);
 
                                 // clean runs between start and end variable pattern
                                 for (int j = notRecognizedVariableStartIndex + 1; j < i; j++) {
-                                    runs.get(j).setText("", 0);
+                                    replaceRun(paragraph, j, "");
                                 }
-                                text = runs.get(i).getText(0);
+                                text = paragraph.getRuns().get(i).text();
                                 Integer suffixIndex = suffixIndexesOf.get(0);
-                                runs.get(i).setText(text.substring(suffixIndex + 1), 0);
+                                replaceRun(paragraph, i, text.substring(suffixIndex + 1));
                                 i = notRecognizedVariableStartIndex;
                             }
 
@@ -131,6 +132,29 @@ public class DocumentCleaner {
                 }
             }
         }
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, XWPFRun run, String text) {
+        int index = paragraph.getRuns().indexOf(run);
+        return replaceRun(paragraph, index, text);
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, int index, String text) {
+        XWPFRun run = paragraph.getRuns().get(index);
+        XWPFRun newRun = paragraph.insertNewRun(index);
+        applyStyle(run, newRun);
+        newRun.setText(text);
+        paragraph.removeRun(index + 1);
+        return newRun;
+    }
+
+    protected void applyStyle(XWPFRun source, XWPFRun target) {
+        applyRPr(target, source.getCTR().getRPr());
+    }
+
+    protected void applyRPr(XWPFRun run, CTRPr rPr) {
+        CTRPr sourceRPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        sourceRPr.set(rPr);
     }
 
     /**

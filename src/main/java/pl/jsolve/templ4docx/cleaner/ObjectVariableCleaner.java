@@ -10,6 +10,7 @@ import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTRPr;
 
 import pl.jsolve.templ4docx.core.Docx;
 import pl.jsolve.templ4docx.core.VariablePattern;
@@ -79,8 +80,9 @@ public class ObjectVariableCleaner {
      * @param variablePattern
      */
     protected void cleanParagraph(XWPFParagraph paragraph, KeysHolder keysHolder, VariablePattern variablePattern) {
-        for (XWPFRun run : paragraph.getRuns()) {
-            String originalText = run.getText(0);
+        for (int i = 0; i < paragraph.getRuns().size(); i++) {
+            XWPFRun run = paragraph.getRuns().get(i);
+            String originalText = run.text();
             String text = originalText;
             if (text == null)
                 continue;
@@ -100,9 +102,32 @@ public class ObjectVariableCleaner {
                 }
             }
             if (!text.equals(originalText)) {
-                run.setText(text, 0);
+                replaceRun(paragraph, i, text);
             }
         }
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, XWPFRun run, String text) {
+        int index = paragraph.getRuns().indexOf(run);
+        return replaceRun(paragraph, index, text);
+    }
+
+    protected XWPFRun replaceRun(XWPFParagraph paragraph, int index, String text) {
+        XWPFRun run = paragraph.getRuns().get(index);
+        XWPFRun newRun = paragraph.insertNewRun(index);
+        applyStyle(run, newRun);
+        newRun.setText(text);
+        paragraph.removeRun(index + 1);
+        return newRun;
+    }
+
+    protected void applyStyle(XWPFRun source, XWPFRun target) {
+        applyRPr(target, source.getCTR().getRPr());
+    }
+
+    protected void applyRPr(XWPFRun run, CTRPr rPr) {
+        CTRPr sourceRPr = run.getCTR().isSetRPr() ? run.getCTR().getRPr() : run.getCTR().addNewRPr();
+        sourceRPr.set(rPr);
     }
 
 }

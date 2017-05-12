@@ -97,7 +97,7 @@ public class VariableFinder {
         List<Insert> inserts = new ArrayList<Insert>();
         StringBuilder sb = new StringBuilder();
         for (XWPFRun run : paragraph.getRuns()) {
-            sb.append(run.getText(0));
+            sb.append(run.text());
         }
         String paragraphText = sb.toString();
 

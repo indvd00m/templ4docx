@@ -77,8 +77,8 @@ public class TestTableTemplate extends AbstractTableVariableTest {
         String expected = "";
         expected += "This is test simple template with table variables.\n";
         expected += "Name	Age	Image	Languages\n";
-        expected += "Lukasz	28		Polishnull	Englishnull\n";
-        expected += "Tomek	24		Polishnull	Englishnull	Frenchnull";
+        expected += "Lukasz	28		Polish	English\n";
+        expected += "Tomek	24		Polish	English	French";
 
         assertEquals(expected, text.trim());
     }
