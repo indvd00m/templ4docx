@@ -33,9 +33,9 @@ public class ImageInsertStrategy implements InsertStrategy {
             XWPFRun run = paragraph.getRuns().get(i);
             String text = run.text();
             if (StringUtils.contains(text, imageInsert.getKey().getKey())) {
-                insertPicture(run, imageVariable);
                 text = StringUtils.replace(text, imageInsert.getKey().getKey(), "");
-                replaceRun(paragraph, i, text);
+                XWPFRun newrun = replaceRun(paragraph, i, text);
+                insertPicture(newrun, imageVariable);
             }
         }
     }
