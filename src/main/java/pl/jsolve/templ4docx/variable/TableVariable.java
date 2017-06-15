@@ -35,47 +35,60 @@ public class TableVariable implements Variable {
         if (numberOfRows == 0) {
             numberOfRows = variable.size();
         } else if (numberOfRows != variable.size()) {
-            throw new IncorrectNumberOfRowsException("Incorrect number of rows. Expected " + numberOfRows + " but was "
-                    + variable.size());
+            throw new IncorrectNumberOfRowsException(
+                    "Incorrect number of rows. Expected " + numberOfRows + " but was " + variable.size());
         }
         this.variables.add(variable);
         // object variables
-        Variable firstVariable = variable.get(0);
-        if (firstVariable instanceof ObjectVariable) {
-            ObjectVariable firstObjVar = (ObjectVariable) firstVariable;
-            List<ObjectVariable> fieldVarsTree = firstObjVar.getFieldVariablesTree();
+        ObjectVariable templateObjVar = null;
+        for (Variable var : variable) {
+            if (var instanceof ObjectVariable) {
+                ObjectVariable objVar = (ObjectVariable) var;
+                Object value = objVar.getValue();
+                if (value != null) {
+                    templateObjVar = objVar;
+                    break;
+                }
+            }
+        }
+        if (templateObjVar != null) {
+            // first not null variable now used as template for all next variables
+            List<ObjectVariable> fieldVarsTree = templateObjVar.getFieldVariablesTree();
             if (!fieldVarsTree.isEmpty()) {
                 for (int i = 0; i < fieldVarsTree.size(); i++) {
                     List<ObjectVariable> fieldVarColumn = new ArrayList<ObjectVariable>(variable.size());
+                    for (int j = 0; j < variable.size(); j++) {
+                        fieldVarColumn.add(null);
+                    }
                     this.variables.add(fieldVarColumn);
                 }
                 Map<String, Integer> keysIndexByName = new HashMap<String, Integer>();
-                // first variable now used as sample for all next variables
-                keysIndexByName.put(firstObjVar.getKey(), 0);
+                keysIndexByName.put(templateObjVar.getKey(), 0);
                 for (int i = 0; i < fieldVarsTree.size(); i++) {
                     ObjectVariable var = fieldVarsTree.get(i);
                     keysIndexByName.put(var.getKey(), i + 1);
                 }
-                for (Variable var : variable) {
+                for (int varIndex = 0; varIndex < variable.size(); varIndex++) {
+                    Variable var = variable.get(varIndex);
                     if (var instanceof ObjectVariable == false) {
                         throw new IllegalArgumentException(
                                 String.format("Expected type of variable: %s, but actual is: %s",
                                         ObjectVariable.class.getName(), var.getClass().getName()));
                     }
                     ObjectVariable rowFieldVar = (ObjectVariable) var;
-                    if (!rowFieldVar.getKey().equals(firstObjVar.getKey())) {
-                        throw new IllegalArgumentException(String.format(
-                                "Expected name of variable: %s, but actual is: %s", firstObjVar, rowFieldVar.getKey()));
+                    if (!rowFieldVar.getKey().equals(templateObjVar.getKey())) {
+                        throw new IllegalArgumentException(
+                                String.format("Expected name of variable: %s, but actual is: %s", templateObjVar,
+                                        rowFieldVar.getKey()));
                     }
                     List<ObjectVariable> columnFieldVars = rowFieldVar.getFieldVariablesTree();
-                    for (int i = 0; i < columnFieldVars.size(); i++) {
-                        ObjectVariable columnFieldVar = columnFieldVars.get(i);
+                    for (ObjectVariable columnFieldVar : columnFieldVars) {
                         Integer columnIndex = keysIndexByName.get(columnFieldVar.getKey());
                         if (columnIndex == null)
                             continue;
                         @SuppressWarnings("unchecked")
                         List<ObjectVariable> columnList = (List<ObjectVariable>) this.variables.get(columnIndex);
-                        columnList.add(columnFieldVar);
+                        columnList.set(varIndex, columnFieldVar);
                     }
                 }
             }
@@ -91,23 +104,31 @@ public class TableVariable implements Variable {
 
         for (List<? extends Variable> variable : variables) {
             if (variable.isEmpty()) {
-                break;
+                continue;
             }
-            Variable firstVariable = variable.get(0);
-            if (firstVariable instanceof TextVariable) {
-                keys.add(new Key(((TextVariable) firstVariable).getKey(), VariableType.TEXT));
-            } else if (firstVariable instanceof ImageVariable) {
-                keys.add(new Key(((ImageVariable) firstVariable).getKey(), VariableType.IMAGE));
-            } else if (firstVariable instanceof BulletListVariable) {
-                keys.add(new Key(((BulletListVariable) firstVariable).getKey(), VariableType.BULLET_LIST));
-            } else if (firstVariable instanceof ObjectVariable) {
-                keys.add(new Key(((ObjectVariable) firstVariable).getKey(), VariableType.OBJECT));
-            } else if (firstVariable instanceof TableVariable) {
-                keys.addAll(extract(((TableVariable) firstVariable).getVariables()));
+            Variable firstNotNullVariable = getFirstNotNull(variable);
+            if (firstNotNullVariable instanceof TextVariable) {
+                keys.add(new Key(((TextVariable) firstNotNullVariable).getKey(), VariableType.TEXT));
+            } else if (firstNotNullVariable instanceof ImageVariable) {
+                keys.add(new Key(((ImageVariable) firstNotNullVariable).getKey(), VariableType.IMAGE));
+            } else if (firstNotNullVariable instanceof BulletListVariable) {
+                keys.add(new Key(((BulletListVariable) firstNotNullVariable).getKey(), VariableType.BULLET_LIST));
+            } else if (firstNotNullVariable instanceof ObjectVariable) {
+                keys.add(new Key(((ObjectVariable) firstNotNullVariable).getKey(), VariableType.OBJECT));
+            } else if (firstNotNullVariable instanceof TableVariable) {
+                keys.addAll(extract(((TableVariable) firstNotNullVariable).getVariables()));
             }
         }
 
         return keys;
+    }
+
+    private Variable getFirstNotNull(List<? extends Variable> variable) {
+        for (Variable var : variable) {
+            if (var != null)
+                return var;
+        }
+        return null;
     }
 
     public boolean containsKey(String key) {
@@ -118,27 +139,27 @@ public class TableVariable implements Variable {
 
         for (List<? extends Variable> variable : variables) {
             if (variable.isEmpty()) {
-                break;
+                continue;
             }
-            Variable firstVariable = variable.get(0);
-            if (firstVariable instanceof TextVariable) {
-                if (key.equals(((TextVariable) firstVariable).getKey())) {
+            Variable firstNotNullVariable = getFirstNotNull(variable);
+            if (firstNotNullVariable instanceof TextVariable) {
+                if (key.equals(((TextVariable) firstNotNullVariable).getKey())) {
                     return true;
                 }
-            } else if (firstVariable instanceof ImageVariable) {
-                if (key.equals(((ImageVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof ImageVariable) {
+                if (key.equals(((ImageVariable) firstNotNullVariable).getKey())) {
                     return true;
                 }
-            } else if (firstVariable instanceof BulletListVariable) {
-                if (key.equals(((BulletListVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof BulletListVariable) {
+                if (key.equals(((BulletListVariable) firstNotNullVariable).getKey())) {
                     return true;
                 }
-            } else if (firstVariable instanceof ObjectVariable) {
-                if (key.equals(((ObjectVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof ObjectVariable) {
+                if (key.equals(((ObjectVariable) firstNotNullVariable).getKey())) {
                     return true;
                 }
-            } else if (firstVariable instanceof TableVariable) {
-                boolean containsKey = containsKey(((TableVariable) firstVariable).getVariables(), key);
+            } else if (firstNotNullVariable instanceof TableVariable) {
+                boolean containsKey = containsKey(((TableVariable) firstNotNullVariable).getVariables(), key);
                 if (containsKey) {
                     return true;
                 }
@@ -154,27 +175,27 @@ public class TableVariable implements Variable {
     private Variable getVariable(List<List<? extends Variable>> variables, Key key, int index) {
         for (List<? extends Variable> variable : variables) {
             if (variable.isEmpty() || variable.size() <= index) {
-                break;
+                continue;
             }
-            Variable firstVariable = variable.get(0);
-            if (firstVariable instanceof TextVariable) {
-                if (key.getKey().equals(((TextVariable) firstVariable).getKey())) {
+            Variable firstNotNullVariable = getFirstNotNull(variable);
+            if (firstNotNullVariable instanceof TextVariable) {
+                if (key.getKey().equals(((TextVariable) firstNotNullVariable).getKey())) {
                     return variable.get(index);
                 }
-            } else if (firstVariable instanceof ImageVariable) {
-                if (key.getKey().equals(((ImageVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof ImageVariable) {
+                if (key.getKey().equals(((ImageVariable) firstNotNullVariable).getKey())) {
                     return variable.get(index);
                 }
-            } else if (firstVariable instanceof BulletListVariable) {
-                if (key.getKey().equals(((BulletListVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof BulletListVariable) {
+                if (key.getKey().equals(((BulletListVariable) firstNotNullVariable).getKey())) {
                     return variable.get(index);
                 }
-            } else if (firstVariable instanceof ObjectVariable) {
-                if (key.getKey().equals(((ObjectVariable) firstVariable).getKey())) {
+            } else if (firstNotNullVariable instanceof ObjectVariable) {
+                if (key.getKey().equals(((ObjectVariable) firstNotNullVariable).getKey())) {
                     return variable.get(index);
                 }
-            } else if (firstVariable instanceof TableVariable) {
-                Variable foundVariable = getVariable(((TableVariable) firstVariable).getVariables(), key, index);
+            } else if (firstNotNullVariable instanceof TableVariable) {
+                Variable foundVariable = getVariable(((TableVariable) firstNotNullVariable).getVariables(), key, index);
                 if (foundVariable != null) {
                     return foundVariable;
                 }
