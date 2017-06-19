@@ -12,6 +12,8 @@ import org.apache.commons.lang3.ClassUtils;
 
 import pl.jsolve.templ4docx.core.VariablePattern;
 import pl.jsolve.templ4docx.utils.ReflectionHelper;
+import pl.jsolve.templ4docx.variable.object.DefaultConverter;
+import pl.jsolve.templ4docx.variable.object.IConverter;
 
 /**
  * @author indvd00m (gotoindvdum[at]gmail[dot]com)
@@ -25,6 +27,7 @@ public class ObjectVariable implements Variable {
     private final String key;
     private final Object value;
     private static final Pattern invalidFieldPattern = Pattern.compile("(?<=\\.)(\\w)");
+    private IConverter converter = new DefaultConverter();
 
     private ObjectVariable(ObjectVariable parentObjectVariable, String key, Object value,
             VariablePattern variablePattern, int maxNestedLevel) {
@@ -35,12 +38,31 @@ public class ObjectVariable implements Variable {
         this.maxNestedLevel = maxNestedLevel;
     }
 
+    private ObjectVariable(ObjectVariable parentObjectVariable, String key, Object value,
+            VariablePattern variablePattern, IConverter converter, int maxNestedLevel) {
+        this.parentObjectVariable = parentObjectVariable;
+        this.key = key;
+        this.value = value;
+        this.variablePattern = variablePattern;
+        this.converter = converter;
+        this.maxNestedLevel = maxNestedLevel;
+    }
+
     public ObjectVariable(String key, Object value, VariablePattern variablePattern) {
         this(null, key, value, variablePattern, 0);
     }
 
+    public ObjectVariable(String key, Object value, VariablePattern variablePattern, IConverter converter) {
+        this(null, key, value, variablePattern, converter, 0);
+    }
+
     public ObjectVariable(String key, Object value, VariablePattern variablePattern, int maxNestedLevel) {
         this(null, key, value, variablePattern, maxNestedLevel);
+    }
+
+    public ObjectVariable(String key, Object value, VariablePattern variablePattern, IConverter converter,
+            int maxNestedLevel) {
+        this(null, key, value, variablePattern, converter, maxNestedLevel);
     }
 
     public String getKey() {
@@ -52,9 +74,7 @@ public class ObjectVariable implements Variable {
     }
 
     public String getStringValue() {
-        if (value != null)
-            return value.toString();
-        return null;
+        return converter.convert(value);
     }
 
     public List<ObjectVariable> getFieldVariables() {
@@ -89,7 +109,7 @@ public class ObjectVariable implements Variable {
         for (Field field : fields) {
             String fieldKey = calculateTreeKey(field);
             Object fieldValue = ReflectionHelper.getFieldValue(value, field);
-            ObjectVariable fieldVariable = new ObjectVariable(this, fieldKey, fieldValue, variablePattern,
+            ObjectVariable fieldVariable = new ObjectVariable(this, fieldKey, fieldValue, variablePattern, converter,
                     maxNestedLevel);
             fieldVariables.add(fieldVariable);
         }
@@ -179,6 +199,10 @@ public class ObjectVariable implements Variable {
         }
         String fixedVarName = sb.toString();
         return fixedVarName;
+    }
+
+    public IConverter getConverter() {
+        return converter;
     }
 
 }
